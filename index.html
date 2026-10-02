@@ -1,0 +1,46 @@
+<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Tableros Electorales</title>
+<style>
+:root{--bg:#eef1f5;--card:#fff;--ink:#141821;--mut:#5c6673;--line:#e2e6ec;--soft:#f6f8fb;--g1:#2f6fb0;--g2:#1f9e89}
+@media(prefers-color-scheme:dark){:root{--bg:#0e1116;--card:#161b22;--ink:#e8ebef;--mut:#9aa4b0;--line:#272d36;--soft:#1b212a;--g1:#3a7fc4;--g2:#22b39a}}
+*{box-sizing:border-box}html,body{margin:0}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;color:var(--ink);background:var(--bg);min-height:100vh;display:flex;flex-direction:column}
+.top{background:var(--card);border-bottom:1px solid var(--line);padding:18px 20px;position:relative}
+.top::before{content:"";position:absolute;left:0;right:0;top:0;height:4px;background:linear-gradient(90deg,var(--g1),var(--g2))}
+.top h1{margin:0;font-size:19px;font-weight:800}
+.top p{margin:4px 0 0;color:var(--mut);font-size:13px}
+.wrap{max-width:860px;margin:0 auto;padding:28px 20px;width:100%}
+.lead{font-size:14.5px;color:var(--mut);line-height:1.6;margin:0 0 22px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:620px){.grid{grid-template-columns:1fr}}
+.card{display:block;text-decoration:none;color:inherit;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:20px;position:relative;overflow:hidden;transition:transform .12s,box-shadow .12s}
+.card:hover{transform:translateY(-2px);box-shadow:0 10px 28px rgba(0,0,0,.10)}
+.card .ac{position:absolute;left:0;top:0;bottom:0;width:5px}
+.card h2{margin:0 0 4px;font-size:17px;font-weight:800}
+.card .m{font-size:12.5px;color:var(--mut);line-height:1.5}
+.card .go{margin-top:12px;font-size:12.5px;font-weight:800;color:var(--g1)}
+.feat{margin:26px 0 0;font-size:12.5px;color:var(--mut);line-height:1.7}
+.feat b{color:var(--ink)}
+.foot{color:var(--mut);font-size:11.5px;padding:16px 20px;border-top:1px solid var(--line);margin-top:auto;line-height:1.6}
+</style></head><body>
+<div class="top">
+  <h1>Tableros Electorales</h1>
+  <p>Resultados desagregados por puesto de votación · últimos tres ciclos</p>
+</div>
+<div class="wrap">
+  <p class="lead">Explora los resultados electorales de Bogotá y del Cesar con filtros cruzados, mapa por puesto de votación, selección por zona y análisis profundo por candidato (trayectoria, cadena de apoyo y comparación).</p>
+  <div class="grid">
+    <a class="card" href="bogota.html"><div class="ac" style="background:var(--g1)"></div>
+      <h2>Bogotá D.C.</h2>
+      <div class="m">Concejo, Alcaldía y JAL · 2015 · 2019 · 2023 · 962 puestos de votación.</div>
+      <div class="go">Abrir tablero →</div></a>
+    <a class="card" href="cesar.html"><div class="ac" style="background:var(--g2)"></div>
+      <h2>Cesar</h2>
+      <div class="m">Gobernación, Asamblea, Alcaldía, Concejo, JAL y Congreso · 2014–2023 · 304 puestos.</div>
+      <div class="go">Abrir tablero →</div></a>
+  </div>
+  <p class="feat"><b>Qué puedes hacer:</b> tocar cualquier gráfico, partido, candidato o localidad filtra todo el tablero a la vez; el mapa tiene capas de calor y de puntos por puesto, y permite dibujar una zona para filtrar solo esa área; cada candidato abre un panel con su perfil, su trayectoria en el tiempo, su cadena de apoyo territorial y la comparación con otro candidato. La pestaña de medidas reúne participación, fragmentación (NEP), volatilidad, concentración territorial y arrastre.</p>
+  <p class="feat" style="font-size:11.5px"><b>Nota metodológica:</b> la trayectoria empareja candidaturas por nombre (puede unir homónimos); la cadena de apoyo y el arrastre son inferencias por coincidencia territorial a nivel de puesto — el voto es secreto, no es seguimiento del voto individual.</p>
+</div>
+<div class="foot">Fuente: Registraduría Nacional del Estado Civil (resultados por mesa/puesto). Elaboración propia.</div>
+</body></html>
