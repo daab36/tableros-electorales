@@ -842,7 +842,7 @@ function setF(k,val){ // toggle-aware
   render();
 }
 function clearEntity(){F.party=null;F.cand=null;F.cm=null;F.puesto=null;F.geo=null;F.geoBounds=null;render();}
-function clearGeo(){F.geo=null;F.geoBounds=null;SELMODE=false;render();}
+function clearGeo(){F.geo=null;F.geoBounds=null;SELMODE=false;PICK=false;render();}
 // puesto dentro del alcance actual (localidad/municipio + zona dibujada), solo en Explorar
 function okPid(pid,cm){const pu=PU[pid];if(!pu)return false;if(cm&&pu.cm!==cm)return false;if(TAB==='explorar'&&F.geo&&!F.geo.has(pid))return false;return true;}
 const geoOn=()=>TAB==='explorar'&&F.geo;
@@ -862,9 +862,14 @@ function candPuestos(y,co,ci){const C=P[y][co],out=[];for(const pid in C.cpv){co
 function partyPuestos(y,co,pname,cm){const C=P[y][co],agg={};for(const pid in C.cpv){if(cm&&(!PU[pid]||PU[pid].cm!==cm))continue;let s=0;for(const ci in C.cpv[pid]){if(C.parties[C.candidates[+ci].pid].name===pname)s+=C.cpv[pid][ci];}if(s)agg[pid]=s;}return Object.entries(agg);}
 function cmTotals(y,co){const C=P[y][co],agg={};for(const pid in C.valid){if(geoOn()&&!F.geo.has(pid))continue;const cm=PU[pid]?PU[pid].cm:'?';agg[cm]=(agg[cm]||0)+C.valid[pid];}return agg;}
 function specialsScoped(y,co,cm){const C=P[y][co];const s=[0,0,0];for(const pid in (C.special||{})){if(!okPid(pid,cm))continue;const a=C.special[pid];s[0]+=a[0]||0;s[1]+=a[1]||0;s[2]+=a[2]||0;}return s;}
+function corpDistAll(){const out=[];for(const yy of years){for(const co of corpsOf(yy)){const C=P[yy][co];if(!C)continue;let val=0;for(const pid in C.valid)val+=C.valid[pid];const s=specialsScoped(yy,co,null);const nv=s[0]+s[1]+s[2];const tot=val+nv;out.push({anio:yy,co,corp:CL[co]||co,total:tot,valid:val,blanco:s[0],nulo:s[1],nomarc:s[2],pnv:tot?100*nv/tot:0});}}return out;}
+function fillCorpDist(){const el=document.getElementById('m_corp');if(!el)return;const cd=corpDistAll();el.innerHTML='<tr><th>Año</th><th>Corporación</th><th class=r>Emitidos</th><th class=r>Válidos</th><th class=r>Blanco</th><th class=r>Nulo</th><th class=r>No marcado</th><th class=r>% no válido</th></tr>'+cd.map(r=>`<tr><td>${r.anio}</td><td>${r.corp}</td><td class=r>${fmt(r.total)}</td><td class=r>${fmt(r.valid)}</td><td class=r>${fmt(r.blanco)}</td><td class=r>${fmt(r.nulo)}</td><td class=r>${fmt(r.nomarc)}</td><td class=r>${r.pnv.toFixed(1)}%</td></tr>`).join('');const btn=document.getElementById('dlcorp');if(btn)btn.onclick=()=>{const H=['anio','corporacion','emitidos','validos','blanco','nulo','no_marcado','pct_no_valido'];const L=[H.join(',')].concat(cd.map(r=>[r.anio,'"'+r.corp+'"',r.total,r.valid,r.blanco,r.nulo,r.nomarc,r.pnv.toFixed(2)].join(',')));const b=new Blob(['﻿'+L.join('\n')],{type:'text/csv;charset=utf-8'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='distribucion_voto_'+AMB+'.csv';a.click();};}
 function pt(pid){return PU[pid]?[PU[pid].lat,PU[pid].lon]:[null,null];}
 
 // ---------- map ----------
+let PICK=false; let KEEPVIEW=null;
+function okMap(pid,cm){const pu=PU[pid];if(!pu)return false;if(cm&&pu.cm!==cm)return false;if(!PICK&&TAB==='explorar'&&F.geo&&!F.geo.has(pid))return false;return true;}
+function togglePick(pid){if(!F.geo)F.geo=new Set();if(F.geo.has(pid))F.geo.delete(pid);else F.geo.add(pid);if(!F.geo.size)F.geo=null;KEEPVIEW=MAP?[MAP.getCenter(),MAP.getZoom()]:null;render();}
 let MAP=null,SELR=null,SELSTART=null;
 function esriTiles(){const d=document.body.classList.contains('night');
   return L.tileLayer(`https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_${d?'Dark':'Light'}_Gray_Base/MapServer/tile/{z}/{y}/{x}`,{maxZoom:17,attribution:'Esri'});}
@@ -896,20 +901,21 @@ function drawMap(points){
     L.heatLayer(pts.map(p=>[p[0],p[1],(p[2]||1)/mx]),{radius:18,blur:22,minOpacity:.4,maxZoom:15,gradient:{0.2:'#2f6fb0',0.4:'#1f9e89',0.6:'#e0a500',0.8:'#e8702a',1:'#c1264e'}}).addTo(MAP);}
   if(pts.length&&showPts){const mx=Math.max(...pts.map(p=>p[2]||1));const wc=pts.length<=1300;
     pts.forEach(p=>{const pid=p[3];const w=wc?winnerParty(y,co,pid):null;const col=F.party?colorOf(F.party):(F.cand!=null?colorOf(P[y][co].parties[P[y][co].candidates[F.cand].pid].name):(w?colorOf(w):'#2f6fb0'));
-      const r=3+5*Math.sqrt((p[2]||1)/mx);
-      L.circleMarker([p[0],p[1]],{radius:r,color:'#fff',weight:.8,fillColor:col,fillOpacity:.85}).addTo(MAP)
-        .on('click',()=>setF('puesto',pid))
-        .bindTooltip(`${PU[pid]?PU[pid].n:pid}${w?' · '+w:''}<br>${fmt(p[2])}`,{direction:'top'});});}
-  if(pts.length){const la=pts.map(p=>p[0]),lo=pts.map(p=>p[1]);try{MAP.fitBounds([[Math.min(...la),Math.min(...lo)],[Math.max(...la),Math.max(...lo)]],{padding:[20,20],maxZoom:13});}catch(e){}}
+      const sel=PICK&&F.geo&&F.geo.has(pid);const r=(3+5*Math.sqrt((p[2]||1)/mx))*(sel?1.35:1);
+      L.circleMarker([p[0],p[1]],{radius:r,color:sel?'#141821':'#fff',weight:sel?2:.8,fillColor:col,fillOpacity:(PICK&&!sel)?.45:.85}).addTo(MAP)
+        .on('click',()=>{if(PICK)togglePick(pid);else setF('puesto',pid);})
+        .bindTooltip(`${PU[pid]?PU[pid].n:pid}${w?' · '+w:''}${(PU[pid]&&PU[pid].prec==='muni')?' · ubic. aprox.':''}<br>${fmt(p[2])}`,{direction:'top'});});}
+  if(KEEPVIEW){try{MAP.setView(KEEPVIEW[0],KEEPVIEW[1]);}catch(e){}KEEPVIEW=null;}else if(pts.length){const la=pts.map(p=>p[0]),lo=pts.map(p=>p[1]);try{MAP.fitBounds([[Math.min(...la),Math.min(...lo)],[Math.max(...la),Math.max(...lo)]],{padding:[20,20],maxZoom:13});}catch(e){}}
   if(F.geoBounds){L.rectangle(F.geoBounds,{color:'#141821',weight:1.5,dashArray:'5',fill:false}).addTo(MAP);}
   wireSelect();setSelMode(SELMODE);
   setTimeout(()=>MAP&&MAP.invalidateSize(),60);
 }
 function mapData(){const {year:y,corp:co,party,cand,cm}=F;let pts,note;
-  if(cand!=null){pts=candPuestos(y,co,cand).filter(([pid])=>okPid(pid,cm)).map(([pid,v])=>[...pt(pid),v,pid]);note='Votos de '+P[y][co].candidates[cand].name+' por puesto';}
-  else if(party){pts=partyPuestos(y,co,party,cm).filter(([pid])=>okPid(pid,cm)).map(([pid,v])=>[...pt(pid),v,pid]);note='Fuerza de '+party+' por puesto';}
-  else {const C=P[y][co];pts=[];for(const pid in C.valid){if(!okPid(pid,cm))continue;pts.push([...pt(pid),C.valid[pid],pid]);}note='Concentración de la votación'+(cm?' en '+munName(cm):'');}
-  if(geoOn())note+=' · zona de '+F.geo.size+' puestos';
+  if(cand!=null){pts=candPuestos(y,co,cand).filter(([pid])=>okMap(pid,cm)).map(([pid,v])=>[...pt(pid),v,pid]);note='Votos de '+P[y][co].candidates[cand].name+' por puesto';}
+  else if(party){pts=partyPuestos(y,co,party,cm).filter(([pid])=>okMap(pid,cm)).map(([pid,v])=>[...pt(pid),v,pid]);note='Fuerza de '+party+' por puesto';}
+  else {const C=P[y][co];pts=[];for(const pid in C.valid){if(!okMap(pid,cm))continue;pts.push([...pt(pid),C.valid[pid],pid]);}note='Concentración de la votación'+(cm?' en '+munName(cm):'');}
+  if(PICK)note+=' · ➕ modo sumar: toca los puestos que quieres sumar'+(F.geo?' · '+F.geo.size+' seleccionados':'');
+  else if(geoOn())note+=' · selección de '+F.geo.size+' puestos';
   return {pts,note};}
 
 // ---------- charts (echarts) ----------
@@ -924,7 +930,7 @@ function renderFilters(){
   document.getElementById('fy').innerHTML=years.map(y=>`<option ${y===F.year?'selected':''}>${y}</option>`).join('');
   document.getElementById('fco').innerHTML=corpsOf(F.year).map(c=>`<option value="${c}" ${c===F.corp?'selected':''}>${CL[c]||c}</option>`).join('');
   const pills=[];
-  if(geoOn())pills.push(`<span class="pill">▭ Zona: <b>${F.geo.size} puestos</b> <span class="x" data-clr="geo">✕</span></span>`);
+  if(geoOn())pills.push(`<span class="pill">◎ Selección: <b>${F.geo.size} puestos</b> <span class="x" data-clr="geo">✕</span></span>`);
   if(F.cm)pills.push(`<span class="pill">${UNIT}: <b>${munName(F.cm)}</b> <span class="x" data-clr="cm">✕</span></span>`);
   if(F.party)pills.push(`<span class="pill"><span class="sw" style="background:${colorOf(F.party)}"></span>Partido: <b>${F.party}</b> <span class="x" data-clr="party">✕</span></span>`);
   if(F.cand!=null){const c=P[F.year][F.corp].candidates[F.cand];pills.push(`<span class="pill"><span class="sw" style="background:${colorOf(P[F.year][F.corp].parties[c.pid].name)}"></span>Candidato: <b>${c.name}</b> <span class="x" data-clr="cand">✕</span></span>`);}
@@ -947,14 +953,14 @@ function renderExplorar(){
   const nep=(()=>{const s=rows.reduce((a,r)=>a+(r.v/tot)**2,0);return s?1/s:0;})();
   const margen=rows.length>1?pc(rows[0].v-rows[1].v,tot):(rows.length?100:0);
   let partK='';
-  if(cand!=null){const c=P[y][co].candidates[cand],pn=P[y][co].parties[c.pid].name,pv=(rows.find(r=>r.n===pn)||{}).v||0;
-    partK=`<div class="kpi"><div class="ac" style="background:${colorOf(pn)}"></div><div class="k">Candidato</div><div class="v" style="font-size:15px">${c.name}</div><div class="s">${fmt(c.total)} · ${pc(c.total,tot).toFixed(1)}% del válido</div></div>`;}
+  if(cand!=null){const c=P[y][co].candidates[cand],pn=P[y][co].parties[c.pid].name;const cv=(geoOn()||cm)?((candScoped(y,co,cm,null).find(r=>r.i===cand)||{}).v||0):c.total;
+    partK=`<div class="kpi"><div class="ac" style="background:${colorOf(pn)}"></div><div class="k">Candidato</div><div class="v" style="font-size:15px">${c.name}</div><div class="s">${fmt(cv)} · ${pc(cv,tot).toFixed(1)}% del válido${geoOn()?' · en selección':''}</div></div>`;}
   else if(party){partK=`<div class="kpi"><div class="ac" style="background:${colorOf(party)}"></div><div class="k">Partido</div><div class="v" style="font-size:15px">${party}</div><div class="s">${fmt(leader?leader.v:0)} · ${pc(leader?leader.v:0,tot).toFixed(1)}%</div></div>`;}
   const partic=(CENSO[y]&&!cm)?pc(tot+noval,CENSO[y]):null;
   app.innerHTML=`
    <div class="kpis">
      <div class="kpi"><div class="ac" style="background:var(--g1)"></div><div class="k">Votos válidos</div><div class="v">${fmt(tot)}</div><div class="s">${CL[co]} ${y}${cm?' · '+munName(cm):''}</div></div>
-     <div class="kpi"><div class="ac" style="background:var(--g2)"></div><div class="k">Participación</div><div class="v">${partic!=null?partic.toFixed(1)+'%':'s/d'}</div><div class="s">${partic!=null?'del censo':'sin censo '+y}</div></div>
+     ${partic!=null?`<div class="kpi"><div class="ac" style="background:var(--g2)"></div><div class="k">Participación</div><div class="v">${partic.toFixed(1)}%</div><div class="s">del censo ${y}</div></div>`:''}
      <div class="kpi"><div class="ac" style="background:${leader?leader.c:'#ccc'}"></div><div class="k">Fuerza líder</div><div class="v" style="font-size:15px">${leader?leader.n:'—'}</div><div class="s">${leader?pc(leader.v,tot).toFixed(1)+'%':''}</div></div>
      <div class="kpi"><div class="ac" style="background:var(--line)"></div><div class="k">Nº efectivo partidos</div><div class="v">${nep.toFixed(1)}</div><div class="s">margen ${margen.toFixed(1)} pp</div></div>
      <div class="kpi"><div class="ac" style="background:var(--line)"></div><div class="k">Voto no válido</div><div class="v">${pc(noval,tot+noval).toFixed(1)}%</div><div class="s">${fmt(noval)} (blanco/nulo)</div></div>
@@ -964,9 +970,9 @@ function renderExplorar(){
    <div class="grid g-main">
      <div class="card"><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:5px"><h3 style="margin:0">Mapa por puesto de votación</h3>
         <span class="mseg" id="mlay" style="margin-left:auto"><button data-l="calor" class="${MLAYERS==='calor'?'on':''}">Calor</button><button data-l="puntos" class="${MLAYERS==='puntos'?'on':''}">Puntos</button><button data-l="ambos" class="${MLAYERS==='ambos'?'on':''}">Ambos</button></span>
-        <button id="mzona" class="mzb ${SELMODE?'on':''}">${SELMODE?'✎ Dibujando…':'▭ Seleccionar zona'}</button>${geoOn()?`<button id="mzclr" class="mzb clr2">✕ Zona (${F.geo.size})</button>`:''}</div>
+        <button id="mzona" class="mzb ${SELMODE?'on':''}">${SELMODE?'✎ Dibujando…':'▭ Dibujar zona'}</button><button id="mpick" class="mzb ${PICK?'on':''}">${PICK?'✓ Sumando…':'➕ Sumar puestos'}</button>${geoOn()?`<button id="mzclr" class="mzb clr2">✕ Selección (${F.geo.size})</button>`:''}</div>
       <div class="h" id="h_map"></div><div class="map" id="mp"></div>
-      <div class="note" id="znote" style="${geoOn()?'':'display:none'}">Zona activa: el tablero completo está filtrado a los <b>${geoOn()?F.geo.size:0}</b> puestos dentro del recuadro. Combínala con partido, candidato o localidad.</div></div>
+      <div class="note" id="znote" style="${geoOn()?'':'display:none'}">Selección activa: el tablero está sumando los <b>${geoOn()?F.geo.size:0}</b> puestos seleccionados — mira “Votos válidos” (y el KPI del candidato) arriba. Combínala con partido, candidato o localidad.</div></div>
      <div class="card"><h3>Composición por partido</h3><div class="h">Toca una barra para filtrar todo por ese partido${cm?' · <b>'+munName(cm)+'</b>':''}</div><div class="chart" id="c_part" style="height:430px"></div></div>
    </div>
    <div class="grid g-2" style="margin-top:12px">
@@ -978,7 +984,8 @@ function renderExplorar(){
   drawMap(md.pts);
   // toolbar del mapa
   document.querySelectorAll('#mlay button').forEach(b=>b.onclick=()=>{MLAYERS=b.dataset.l;render();});
-  const mz=document.getElementById('mzona');if(mz)mz.onclick=()=>{setSelMode(!SELMODE);mz.classList.toggle('on',SELMODE);mz.textContent=SELMODE?'✎ Dibujando…':'▭ Seleccionar zona';};
+  const mz=document.getElementById('mzona');if(mz)mz.onclick=()=>{PICK=false;setSelMode(!SELMODE);mz.classList.toggle('on',SELMODE);mz.textContent=SELMODE?'✎ Dibujando…':'▭ Dibujar zona';};
+  const mp=document.getElementById('mpick');if(mp)mp.onclick=()=>{PICK=!PICK;if(PICK)setSelMode(false);render();};
   const mzc=document.getElementById('mzclr');if(mzc)mzc.onclick=clearGeo;
   renderDetail();
   // composición
@@ -1039,7 +1046,8 @@ function renderMedidas(){
    </div>
    <div class="card" style="margin-top:12px"><h3>Concentración territorial · ${CL[co]} ${y} — ¿maquinaria o voto de opinión?</h3><div class="h">Cada punto = un candidato. Arriba = concentrado (feudo); derecha = presente en más puestos. Cambia la corporación arriba para ver otra.</div><div class="chart" id="m_conc" style="height:400px"></div></div>
    <div class="card" style="margin-top:12px"><div class="ctrls"><h3 style="margin:0">Arrastre entre corporaciones</h3><span class="lab">De</span><select id="a_ca"></select><span class="lab">a</span><select id="a_cb"></select></div><div class="h">Correlación por puesto entre la fuerza de cada familia en dos corporaciones</div><div class="chart" id="m_arr" style="height:300px"></div></div>
-   <div class="card" style="margin-top:12px"><h3>Competencia · ${y}</h3><table id="m_tbl"></table></div>`;
+   <div class="card" style="margin-top:12px"><h3>Competencia · ${y}</h3><table id="m_tbl"></table></div><div class="card" style="margin-top:12px"><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><h3 style="margin:0">Distribución del voto por corporación</h3><button id="dlcorp" class="mzb" style="margin-left:auto">⬇ Descargar CSV</button></div><div class="h">Por corporación y año: votos emitidos, válidos, en blanco, nulos, no marcados y % no válido.</div><table id="m_corp"></table></div>`;
+  fillCorpDist();
   // participación
   const prows=[];for(const yy in CENSO){if(!P[yy])continue;for(const c of corpsOf(yy)){const C=P[yy][c];let b=0;for(const pid in C.valid)b+=C.valid[pid];const s=specialsScoped(yy,c,null);b+=s[0]+s[1]+s[2];prows.push({anio:yy,co:c,v:+(100*b/CENSO[yy]).toFixed(1)});}}
   const pan=[...new Set(prows.map(r=>r.anio))].sort(),pco=[...new Set(prows.map(r=>r.co))].sort((a,b)=>ORDER.indexOf(a)-ORDER.indexOf(b));
@@ -1240,8 +1248,8 @@ function candStats(y,co,ci){const c=P[y][co].candidates[ci];const vals=candPuest
 function aggByCm(ps){const o={};ps.forEach(([pid,v])=>{const cm=PU[pid]?PU[pid].cm:'?';o[cm]=(o[cm]||0)+v;});return o;}
 
 function renderDetail(){const el=document.getElementById('detail');if(!el)return;const y=F.year,co=F.corp;
-  if(F.puesto){const pid=F.puesto,P0=PU[pid];const pb=puestoParties(y,co,pid),cds=puestoCands(y,co,pid),tot=pb.reduce((s,r)=>s+r.v,0);const corps=corpsOf(y).filter(c=>P[y][c].cpv&&P[y][c].cpv[pid]);
-    el.innerHTML=`<div class="card dcard"><div class="dhead"><h3>🏠 ${P0?P0.n:pid}</h3><span class="dsub">${P0?munName(P0.cm):''} · ${CL[co]} ${y} · ${fmt(tot)} válidos</span><span class="clr sp" id="dclose">✕ cerrar detalle</span></div>
+  if(F.puesto){const pid=F.puesto,P0=PU[pid];const pb=puestoParties(y,co,pid),cds=puestoCands(y,co,pid),tot=pb.reduce((s,r)=>s+r.v,0);const corps=corpsOf(y).filter(c=>P[y][c].cpv&&P[y][c].cpv[pid]);const ayr=years.filter(yy=>corpsOf(yy).some(c=>P[yy]&&P[yy][c]&&P[yy][c].cpv&&P[yy][c].cpv[pid]));const prec=(P0&&P0.prec==='muni')?'ubicación aproximada':'ubicación exacta';
+    el.innerHTML=`<div class="card dcard"><div class="dhead"><h3>🏠 ${P0?P0.n:pid}</h3><span class="dsub">${P0?munName(P0.cm):''} · ${CL[co]} ${y} · ${fmt(tot)} válidos · activo en ${ayr.join(', ')||'—'} · ${prec}</span><span class="clr sp" id="dclose">✕ cerrar detalle</span></div>
       <div class="grid g-2"><div><div class="h">Composición por partido en este puesto</div><div class="chart" id="d_donut" style="height:250px"></div></div>
       <div><div class="h">Candidatos más votados aquí</div><div class="chart" id="d_bar" style="height:250px"></div></div></div>
       <div class="h" style="margin-top:8px">Ganador por corporación en este puesto · ${y}</div>
