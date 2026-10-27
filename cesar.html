@@ -904,7 +904,7 @@ function drawMap(points){
       const sel=PICK&&F.geo&&F.geo.has(pid);const r=(3+5*Math.sqrt((p[2]||1)/mx))*(sel?1.35:1);
       L.circleMarker([p[0],p[1]],{radius:r,color:sel?'#141821':'#fff',weight:sel?2:.8,fillColor:col,fillOpacity:(PICK&&!sel)?.45:.85}).addTo(MAP)
         .on('click',()=>{if(PICK)togglePick(pid);else setF('puesto',pid);})
-        .bindTooltip(`${PU[pid]?PU[pid].n:pid}${w?' · '+w:''}${(PU[pid]&&PU[pid].prec==='muni')?' · ubic. aprox.':''}<br>${fmt(p[2])}`,{direction:'top'});});}
+        .bindTooltip(`${PU[pid]?PU[pid].n:pid}${(PU[pid]&&PU[pid].prec==='muni')?' · ubic. aprox.':''}<br>${F.cand!=null?P[y][co].candidates[F.cand].name+': '+fmt(p[2])+' votos':((w?w+' · ':'')+fmt(p[2]))}`,{direction:'top'});});}
   if(KEEPVIEW){try{MAP.setView(KEEPVIEW[0],KEEPVIEW[1]);}catch(e){}KEEPVIEW=null;}else if(pts.length){const la=pts.map(p=>p[0]),lo=pts.map(p=>p[1]);try{MAP.fitBounds([[Math.min(...la),Math.min(...lo)],[Math.max(...la),Math.max(...lo)]],{padding:[20,20],maxZoom:13});}catch(e){}}
   if(F.geoBounds){L.rectangle(F.geoBounds,{color:'#141821',weight:1.5,dashArray:'5',fill:false}).addTo(MAP);}
   wireSelect();setSelMode(SELMODE);
@@ -1036,6 +1036,7 @@ function concOf(y,co,minv){const C=P[y][co],npu=Object.keys(C.cpv).length,byc={}
 function pfShare(y,co){const C=P[y][co],res={};for(const pid in C.cpv){const cd=C.cpv[pid],m={};let tot=0;for(const ci in cd){const fam=C.parties[C.candidates[+ci].pid].fam;m[fam]=(m[fam]||0)+cd[ci];tot+=cd[ci];}for(const k in m)m[k]=100*m[k]/tot;res[pid]=m;}return res;}
 function arrOf(y,ca,cb,minp){if(!P[y][ca]||!P[y][cb])return[];const A=pfShare(y,ca),B=pfShare(y,cb),fams={};for(const pid in A){if(!B[pid])continue;const ks=new Set([...Object.keys(A[pid]),...Object.keys(B[pid])]);ks.forEach(k=>{(fams[k]||(fams[k]=[])).push([A[pid][k]||0,B[pid][k]||0]);});}
   const out=[];for(const k in fams){if(fams[k].length<minp)continue;out.push({fam:k,n:fams[k].length,c:+corrA(fams[k].map(p=>p[0]),fams[k].map(p=>p[1])).toFixed(3)});}return out.sort((a,b)=>b.c-a.c).slice(0,8);}
+function arrOf2(yA,ca,yB,cb,minp){if(!P[yA]||!P[yA][ca]||!P[yB]||!P[yB][cb])return[];const A=pfShare(yA,ca),B=pfShare(yB,cb),fams={};for(const pid in A){if(!B[pid])continue;const ks=new Set([...Object.keys(A[pid]),...Object.keys(B[pid])]);ks.forEach(k=>{(fams[k]||(fams[k]=[])).push([A[pid][k]||0,B[pid][k]||0]);});}const out=[];for(const k in fams){if(fams[k].length<minp)continue;out.push({fam:k,n:fams[k].length,c:+corrA(fams[k].map(p=>p[0]),fams[k].map(p=>p[1])).toFixed(3)});}return out.sort((a,b)=>b.c-a.c).slice(0,8);}
 function renderMedidas(){
   const y=F.year,co=F.corp,t=tnow();
   app.innerHTML=`<div class="note"><b>Cómo leer esta pestaña:</b> las vistas <b>en el tiempo</b> (participación, NEP, volatilidad) muestran <b>todos los años</b> — por eso ves 2014/2015/2018 aunque arriba esté ${y}; el año seleccionado aparece marcado. La <b>concentración</b> y la <b>competencia</b> sí corresponden al año y corporación de arriba (<b>${CL[co]} ${y}</b>). El voto es secreto: el arrastre es inferencia geográfica.</div>
@@ -1045,7 +1046,7 @@ function renderMedidas(){
      <div class="card"><h3>Volatilidad (Pedersen)</h3><div class="h">Cambio del mapa de fuerzas en la transición más reciente</div><div class="chart" id="m_vol" style="height:290px"></div></div>
    </div>
    <div class="card" style="margin-top:12px"><h3>Concentración territorial · ${CL[co]} ${y} — ¿maquinaria o voto de opinión?</h3><div class="h">Cada punto = un candidato. Arriba = concentrado (feudo); derecha = presente en más puestos. Cambia la corporación arriba para ver otra.</div><div class="chart" id="m_conc" style="height:400px"></div></div>
-   <div class="card" style="margin-top:12px"><div class="ctrls"><h3 style="margin:0">Arrastre entre corporaciones</h3><span class="lab">De</span><select id="a_ca"></select><span class="lab">a</span><select id="a_cb"></select></div><div class="h">Correlación por puesto entre la fuerza de cada familia en dos corporaciones</div><div class="chart" id="m_arr" style="height:300px"></div></div>
+   <div class="card" style="margin-top:12px"><div class="ctrls"><h3 style="margin:0">Arrastre entre corporaciones</h3><span class="lab">De</span><select id="a_ca"></select><span class="lab">a</span><select id="a_cb"></select></div><div class="h">Correlación por puesto entre la fuerza de cada familia en dos corporaciones — pueden ser de <b>años distintos</b> (p. ej. Senado 2022 vs Alcaldía 2023), para ver el arrastre del Congreso sobre lo local</div><div class="chart" id="m_arr" style="height:300px"></div></div>
    <div class="card" style="margin-top:12px"><h3>Competencia · ${y}</h3><table id="m_tbl"></table></div><div class="card" style="margin-top:12px"><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><h3 style="margin:0">Distribución del voto por corporación</h3><button id="dlcorp" class="mzb" style="margin-left:auto">⬇ Descargar CSV</button></div><div class="h">Por corporación y año: votos emitidos, válidos, en blanco, nulos, no marcados y % no válido.</div><table id="m_corp"></table></div>`;
   fillCorpDist();
   // participación
@@ -1067,11 +1068,15 @@ function renderMedidas(){
   // concentración (corp seleccionada)
   concChartMed(y,co);
   // arrastre selectors
-  const cs=corpsOf(y);const aca=document.getElementById('a_ca'),acb=document.getElementById('a_cb');
-  let ca=cs.includes('ALCALDE')?'ALCALDE':cs[0],cb=cs.includes('CONCEJO')?'CONCEJO':cs[cs.length-1];
-  aca.innerHTML=cs.map(c=>`<option value="${c}" ${c===ca?'selected':''}>${CL[c]||c}</option>`).join('');
-  acb.innerHTML=cs.map(c=>`<option value="${c}" ${c===cb?'selected':''}>${CL[c]||c}</option>`).join('');
-  const drawArr=()=>{const rows=arrOf(y,aca.value,acb.value,40).slice().reverse();
+  const aca=document.getElementById('a_ca'),acb=document.getElementById('a_cb');
+  const AOPTS=[];years.slice().sort().forEach(yy=>corpsOf(yy).forEach(c=>AOPTS.push(yy+'|'+c)));
+  const congY=years.filter(yy=>corpsOf(yy).includes('SENADO')).sort();
+  const alcY=years.filter(yy=>corpsOf(yy).includes('ALCALDE')).sort();
+  const va=congY.length?congY[congY.length-1]+'|SENADO':AOPTS[0];
+  const vb=alcY.length?alcY[alcY.length-1]+'|ALCALDE':AOPTS[AOPTS.length-1];
+  const mkA=sel=>AOPTS.map(o=>{const a=o.split('|');return `<option value="${o}" ${o===sel?'selected':''}>${CL[a[1]]||a[1]} ${a[0]}</option>`;}).join('');
+  aca.innerHTML=mkA(va);acb.innerHTML=mkA(vb);
+  const drawArr=()=>{const pa=aca.value.split('|'),pb=acb.value.split('|');const rows=arrOf2(pa[0],pa[1],pb[0],pb[1],40).slice().reverse();
     ec('m_arr').setOption(Object.assign(ebase(),{grid:{left:8,right:40,top:8,bottom:20,containLabel:true},tooltip:{trigger:'item',formatter:o=>`${o.name}<br>correlación ${o.value} · ${o.data.p} puestos`},
       xAxis:Object.assign({type:'value',name:'correlación',max:1},axL(t)),yAxis:Object.assign({type:'category',data:rows.map(r=>r.fam.length>24?r.fam.slice(0,23)+'…':r.fam),axisLabel:{color:t.txt,fontSize:11}},axL(t)),
       series:[{type:'bar',data:rows.map(r=>({value:r.c,p:r.n,itemStyle:{color:'#1f9e89',borderRadius:[0,4,4,0]}})),barMaxWidth:16,label:{show:true,position:'right',color:t.mut,fontSize:10,formatter:'{c}'}}]}),true);};
@@ -1248,9 +1253,9 @@ function candStats(y,co,ci){const c=P[y][co].candidates[ci];const vals=candPuest
 function aggByCm(ps){const o={};ps.forEach(([pid,v])=>{const cm=PU[pid]?PU[pid].cm:'?';o[cm]=(o[cm]||0)+v;});return o;}
 
 function renderDetail(){const el=document.getElementById('detail');if(!el)return;const y=F.year,co=F.corp;
-  if(F.puesto){const pid=F.puesto,P0=PU[pid];const pb=puestoParties(y,co,pid),cds=puestoCands(y,co,pid),tot=pb.reduce((s,r)=>s+r.v,0);const corps=corpsOf(y).filter(c=>P[y][c].cpv&&P[y][c].cpv[pid]);const ayr=years.filter(yy=>corpsOf(yy).some(c=>P[yy]&&P[yy][c]&&P[yy][c].cpv&&P[yy][c].cpv[pid]));const prec=(P0&&P0.prec==='muni')?'ubicación aproximada':'ubicación exacta';
+  if(F.puesto){const pid=F.puesto,P0=PU[pid];const pb=puestoParties(y,co,pid),cds=puestoCands(y,co,pid),tot=pb.reduce((s,r)=>s+r.v,0);const corps=corpsOf(y).filter(c=>P[y][c].cpv&&P[y][c].cpv[pid]);const ayr=years.filter(yy=>corpsOf(yy).some(c=>P[yy]&&P[yy][c]&&P[yy][c].cpv&&P[yy][c].cpv[pid]));const prec=(P0&&P0.prec==='muni')?'ubicación aproximada':'ubicación exacta';const C0=P[y][co];const fc=F.cand;let candBox='';if(fc!=null&&C0.candidates[fc]){const cn=C0.candidates[fc].name;const cvp=(C0.cpv[pid]&&C0.cpv[pid][fc])||0;const sc=cds.slice().sort((a,b)=>b.v-a.v);const rk=sc.findIndex(r=>r.n===cn)+1;const nc=sc.length;const win=sc[0];const col=colorOf(C0.parties[C0.candidates[fc].pid].name);candBox=`<div class="note" style="border-left:3px solid ${col};margin:6px 0 2px">🎯 <b>${cn}</b> aquí: <b>${fmt(cvp)}</b> votos · ${pc(cvp,tot).toFixed(1)}% del válido${rk?` · puesto <b>${rk}</b> de ${nc}`:' · sin votos aquí'}${(win&&win.n!==cn)?` · el más votado fue ${win.n} (${fmt(win.v)})`:(rk===1?' · <b>fue el más votado aquí</b>':'')}</div>`;}
     el.innerHTML=`<div class="card dcard"><div class="dhead"><h3>🏠 ${P0?P0.n:pid}</h3><span class="dsub">${P0?munName(P0.cm):''} · ${CL[co]} ${y} · ${fmt(tot)} válidos · activo en ${ayr.join(', ')||'—'} · ${prec}</span><span class="clr sp" id="dclose">✕ cerrar detalle</span></div>
-      <div class="grid g-2"><div><div class="h">Composición por partido en este puesto</div><div class="chart" id="d_donut" style="height:250px"></div></div>
+      ${candBox}<div class="grid g-2"><div><div class="h">Composición por partido en este puesto</div><div class="chart" id="d_donut" style="height:250px"></div></div>
       <div><div class="h">Candidatos más votados aquí</div><div class="chart" id="d_bar" style="height:250px"></div></div></div>
       <div class="h" style="margin-top:8px">Ganador por corporación en este puesto · ${y}</div>
       <table>${corps.map(c=>{const b=puestoParties(y,c,pid),w=b[0],tt=b.reduce((s,r)=>s+r.v,0);return `<tr><td><span class="sw" style="background:${CORPCOL[c]}"></span>${CL[c]||c}</td><td><span class="sw" style="background:${w?w.c:'#888'}"></span>${w?w.n:'—'}</td><td class=r>${w?pc(w.v,tt).toFixed(1)+'%':''}</td></tr>`;}).join('')}</table></div>`;
